@@ -1,0 +1,52 @@
+name: repro
+on:
+  push:
+    branches: [repro-replication-pdict]
+permissions:
+  contents: read
+jobs:
+  repro:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {ref: 192767407742e43a9aa8f03fa6e5a328377e9965, name: master-v0.23.0, modes: literal}
+          - {ref: 36ba12ff677ce7160e3a39e2daaa84c9b2e689b1, name: pr-810, modes: "literal configure"}
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      REPRO_SECRET: repro-secret-7c1f0a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '28'
+          elixir-version: '1.19'
+      - name: PostgreSQL on the runner
+        run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -qc "ALTER USER postgres PASSWORD '$REPRO_SECRET'"
+          sudo grep -E '^host\s+replication' /etc/postgresql/*/main/pg_hba.conf
+      - name: Postgrex at the ref under test
+        run: |
+          git clone -q https://github.com/elixir-ecto/postgrex.git pgx
+          git -C pgx fetch -q origin ${{ matrix.ref }} || git -C pgx fetch -q https://github.com/palermo-git/postgrex.git ${{ matrix.ref }}
+          git -C pgx checkout -q ${{ matrix.ref }}
+          git -C pgx log -1 --format='postgrex %H %s'
+          cd pgx && mix deps.get && mix compile
+      - name: Repro
+        run: |
+          cd pgx
+          for mode in ${{ matrix.modes }}; do
+            for level in debug info; do
+              out="../out-$mode-$level.log"
+              MODE=$mode LEVEL=$level mix run ../repro.exs > "$out" 2>&1 || echo "run failed: $mode $level"
+              grep '^RESULT' "$out" || tail -20 "$out"
+              hits=$(grep -v '^RESULT' "$out" | grep -c "$REPRO_SECRET" || true)
+              dict=$(grep -c 'Dictionary' "$out" || true)
+              echo "CONSOLE mode=$mode level=$level secret_lines_in_console_log=$hits dictionary_sections=$dict"
+            done
+          done
