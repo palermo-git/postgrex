@@ -1,8 +1,8 @@
 # Where does a ReplicationConnection's password appear? Never prints the secret itself:
 # every RESULT line carries booleans only, so any occurrence in the job log came from Postgrex/OTP.
 secret = System.fetch_env!("REPRO_SECRET")
-mode = System.fetch_env!("MODE")
-level = String.to_atom(System.fetch_env!("LEVEL"))
+mode = System.fetch_env!("REPRO_MODE")
+level = String.to_atom(System.fetch_env!("REPRO_LEVEL"))
 Logger.configure(level: level)
 
 defmodule Repro.Conn do

@@ -43,7 +43,7 @@ jobs:
           for mode in ${{ matrix.modes }}; do
             for level in debug info; do
               out="../out-$mode-$level.log"
-              MODE=$mode LEVEL=$level mix run ../repro.exs > "$out" 2>&1 || echo "run failed: $mode $level"
+              REPRO_MODE=$mode REPRO_LEVEL=$level mix run ../repro.exs > "$out" 2>&1 || echo "run failed: $mode $level"
               grep '^RESULT' "$out" || tail -20 "$out"
               hits=$(grep -v '^RESULT' "$out" | grep -c "$REPRO_SECRET" || true)
               dict=$(grep -c 'Dictionary' "$out" || true)
