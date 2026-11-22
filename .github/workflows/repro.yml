@@ -42,11 +42,14 @@ jobs:
           cd pgx
           for mode in ${{ matrix.modes }}; do
             for level in debug info; do
-              out="../out-$mode-$level.log"
-              REPRO_MODE=$mode REPRO_LEVEL=$level mix run ../repro.exs > "$out" 2>&1 || echo "run failed: $mode $level"
-              grep '^RESULT' "$out" || tail -20 "$out"
-              hits=$(grep -v '^RESULT' "$out" | grep -c "$REPRO_SECRET" || true)
-              dict=$(grep -c 'Dictionary' "$out" || true)
-              echo "CONSOLE mode=$mode level=$level secret_lines_in_console_log=$hits dictionary_sections=$dict"
+              for sasl in false true; do
+                out="../out-$mode-$level-$sasl.log"
+                ELIXIR_ERL_OPTIONS="-logger handle_sasl_reports $sasl" REPRO_MODE=$mode REPRO_LEVEL=$level \
+                  mix run ../repro.exs > "$out" 2>&1 || echo "run failed: $mode $level sasl=$sasl"
+                grep '^RESULT' "$out" | sed "s/^RESULT /RESULT sasl=$sasl /" || tail -20 "$out"
+                hits=$(grep -v '^RESULT' "$out" | grep -c "$REPRO_SECRET" || true)
+                dict=$(grep -c 'Dictionary' "$out" || true)
+                echo "CONSOLE mode=$mode level=$level sasl=$sasl secret_lines_in_console_log=$hits dictionary_sections=$dict"
+              done
             done
           done
