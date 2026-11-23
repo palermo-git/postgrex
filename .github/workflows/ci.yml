@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - 810-handle-disconnect-ci
   pull_request:
 
 jobs:
